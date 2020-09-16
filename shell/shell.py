@@ -31,7 +31,7 @@ while 1:
         files = os.listdir(path)
         for x in files:
             print(x)
-            
+
     pid = os.getpid()
     # os.write(1, ("About to fork (pid:%d)\n" % pid).encode())
     rc = os.fork()
@@ -90,6 +90,17 @@ while 1:
             for fd in (w, r):
                 os.close(fd)
             path(p2)
+
+    else:               #background task
+        for dir in re.split(":", os.environ['PATH']):  # try each directory in the path
+            program = "%s/%s" % (dir, args[0])
+            try:
+                os.execve(program, args, os.environ)  # try to exec program
+            except FileNotFoundError:  # this is expected
+                pass  # fail quietly
+
+        os.write(2, ("Command %s not found. Try again.\n" % args[0]).encode())
+        sys.exit(1)  # terminate with error
 
 
 

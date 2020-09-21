@@ -11,20 +11,32 @@ while 1:
         os.write(1, (os.environ['PS1']).encode())
     else:
         os.write(1, ("$ ").encode())
+
+    pid = os.getpid()
+    rc = os.fork()
+    if rc < 0: #parent child
+        sys.exit(1)
+    elif rc == 0:  # child
         prompt = input()
+
 
     if prompt == 'exit':
         break
+
+    if prompt == "":  # no input
+        pass
 
     cm = prompt.split()
     #Changes directory
     if cm[0] == 'cd':
         #removes cd from str
         nextDict = cm[1]
+        if '..' in nextDict:
+            nextDict = '..'
         try:
             os.chdir(nextDict)
-        except:
-            print("unable to change to directory")
+        except FileNotFoundError:
+            pass
 
     if 'ls' in prompt:
         path = os.getcwd()
@@ -32,16 +44,7 @@ while 1:
         for x in files:
             print(x)
 
-    pid = os.getpid()
-    # os.write(1, ("About to fork (pid:%d)\n" % pid).encode())
-    rc = os.fork()
-    if rc < 0:
-        # os.write(2, ("fork failed, returning %d\n" % rc).encode())
-        sys.exit(1)
-    elif rc == 0:  # child
 
-        # os.write(1, ("Child: My pid==%d.  Parent's pid=%d\n" %(os.getpid(), pid)).encode())
-        args = prompt.split()
 
     if "<" in prompt:  # redirect in
         os.close(0)  # Redirect input
@@ -61,46 +64,37 @@ while 1:
         p1 = pipe[0].split()
         p2 = pipe[1].split()
 
-        r, w = os.pipe()  # file descriptors pr, pw for reading and writing
-        for f in (r, w):
+        pr, pw = os.pipe()  # file descriptors pr, pw for reading and writing
+        for f in (pr, pw):
             os.set_inheritable(f, True)
-        print("pipe fds: pr=%d, pw=%d" % (pr, pw))
-        print("About to fork (pid=%d)" % pid)
+        #print("pipe fds: pr=%d, pw=%d" % (pr, pw))
+        #print("About to fork (pid=%d)" % pid)
         pipeFork = os.fork()
         if pipeFork < 0:  # fork failed
-            print("fork failed, returning %d\n" % rc, file=sys.stderr)
+            #print("fork failed, returning %d\n" % rc, file=sys.stderr)
             # os.write(2, ('Fork failed').encode())
             sys.exit(1)
 
         if pipeFork == 0:  # child - will write to pipe
-            print("Child: My pid==%d.  Parent's pid=%d" % (os.getpid(), pid), file=sys.stderr)
-            args = ["wc", "p3-exec.py"]
+            #print("Child: My pid==%d.  Parent's pid=%d" % (os.getpid(), pid), file=sys.stderr)
+            #args = ["wc", "p3-exec.py"]
             os.close(1)  # redirect child's stdout
-            os.dup(w)
+            os.dup(pw)
             os.set_inheritable(1, True)
 
-            for fd in (r, w):
+            for fd in (pr, pw):
                 os.close(fd)
             path(p1)
         else:  # parent (forked ok)
-            print("Parent: My pid==%d.  Child's pid=%d" % (os.getpid(), rc), file=sys.stderr)
+            #print("Parent: My pid==%d.  Child's pid=%d" % (os.getpid(), rc), file=sys.stderr)
             os.close(0)
-            os.dup(r)
+            os.dup(pr)
             os.set_inheritable(0, True)
-            for fd in (w, r):
+            for fd in (pw, pr):
                 os.close(fd)
             path(p2)
 
-    else:               #background task
-        for dir in re.split(":", os.environ['PATH']):  # try each directory in the path
-            program = "%s/%s" % (dir, args[0])
-            try:
-                os.execve(program, args, os.environ)  # try to exec program
-            except FileNotFoundError:  # this is expected
-                pass  # fail quietly
 
-        os.write(2, ("Command %s not found. Try again.\n" % args[0]).encode())
-        sys.exit(1)  # terminate with error
 
 
 

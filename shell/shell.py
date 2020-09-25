@@ -14,29 +14,32 @@ while 1:
 
     pid = os.getpid()
     rc = os.fork()
-    if rc < 0: #parent child
-        sys.exit(1)
-    elif rc == 0:  # child
-        prompt = input()
 
+    prompt = input()
 
-    if prompt == 'exit':
-        break
 
     if prompt == "":  # no input
         pass
 
+    if 'exit' in prompt:
+        break
+
     cm = prompt.split()
+
     #Changes directory
-    if cm[0] == 'cd':
-        #removes cd from str
-        nextDict = cm[1]
-        if '..' in nextDict:
+    if 'cd' in prompt:
+        nextDict = ''
+        if 'cd..' in prompt:
             nextDict = '..'
+        else:
+            # removes cd from str
+            nextDict = cm[1]
+
         try:
             os.chdir(nextDict)
         except FileNotFoundError:
             pass
+
 
     if 'ls' in prompt:
         path = os.getcwd()
@@ -48,13 +51,13 @@ while 1:
 
     if "<" in prompt:  # redirect in
         os.close(0)  # Redirect input
-        sys.stdin = open(prompt[1].strip(), 'r')  # open and set to read
+        sys.stdin = open(cm[1].strip(), 'r')  # open and set to read
         os.set_inheritable(0, True)
         path(prompt[0].split())
 
     if ">" in prompt:  # redirect out
         os.close(1)
-        sys.stdout = open(prompt[1].strip(), "w")  # open and set to write
+        sys.stdout = open(cm[1].strip(), "w")  # open and set to write
         os.set_inheritable(1, True)
         path(prompt[0].split())
 
@@ -94,6 +97,20 @@ while 1:
                 os.close(fd)
             path(p2)
 
+
+
+    else:
+        args = prompt.split()
+
+        for dir in re.split(":", os.environ['PATH']):  # try each directory in the path
+            program = "%s/%s" % (dir, args[0])
+            try:
+                os.execve(program, args, os.environ)  # try to exec program
+            except FileNotFoundError:  # ...expected
+                pass  # ...fail quietly
+
+        os.write(2, ("Could not excecute the following command \"%s\"\n" % prompt).encode())
+        sys.exit(1)  # terminate with error if execve could not run program
 
 
 

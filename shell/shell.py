@@ -5,6 +5,16 @@ import os
 import sys
 import re
 
+def commands(args):
+    for dir in re.split(":", os.environ['PATH']):  # try each directory in the path
+        program = "%s/%s" % (dir, args[0])
+        try:
+            os.execve(program, args, os.environ)  # try to exec program
+        except FileNotFoundError:  # ...expected
+            pass  # ...fail quietly
+
+    os.write(2, ("Could not excecute the following command \"%s\"\n" % prompt).encode())
+    sys.exit(1)  # terminate with error if execve could not run program
 
 while 1:
     if 'PS1' in os.environ:
@@ -53,13 +63,13 @@ while 1:
         os.close(0)  # Redirect input
         sys.stdin = open(cm[1].strip(), 'r')  # open and set to read
         os.set_inheritable(0, True)
-        path(prompt[0].split())
+        commands(prompt[0].split())
 
     if ">" in prompt:  # redirect out
         os.close(1)
         sys.stdout = open(cm[1].strip(), "w")  # open and set to write
         os.set_inheritable(1, True)
-        path(prompt[0].split())
+        commands(prompt[0].split())
 
 
     if '|' in prompt:
@@ -100,18 +110,6 @@ while 1:
 
 
     else:
-        args = prompt.split()
-
-        for dir in re.split(":", os.environ['PATH']):  # try each directory in the path
-            program = "%s/%s" % (dir, args[0])
-            try:
-                os.execve(program, args, os.environ)  # try to exec program
-            except FileNotFoundError:  # ...expected
-                pass  # ...fail quietly
-
-        os.write(2, ("Could not excecute the following command \"%s\"\n" % prompt).encode())
-        sys.exit(1)  # terminate with error if execve could not run program
-
-
+        commands(cm)
 
 
